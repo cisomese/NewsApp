@@ -1,0 +1,6 @@
+export DB_HOST="localhost"
+export DB_USER="root"
+export DB_PASSWORD="Root@1234"
+export DB_NAME="telegram_news"
+export DB_PORT="3306"
+echo "environment variables are set"
