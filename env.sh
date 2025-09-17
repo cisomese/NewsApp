@@ -1,6 +1,5 @@
-export DB_HOST="localhost"
-export DB_USER="root"
+export DB_USER="meselefrancesco"
 export DB_PASSWORD="Root@1234"
 export DB_NAME="telegram_news"
-export DB_PORT="3306"
+export DB_CLUSTER="cluster0.br1zjsk.mongodb.net"
 echo "environment variables are set"

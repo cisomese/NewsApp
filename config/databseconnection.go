@@ -1,35 +1,54 @@
 package config
 
 import (
-	"database/sql"
+	"context"
 	"fmt"
+	"net/url"
 	"os"
-	"strconv"
+	"time"
 
-	"github.com/go-sql-driver/mysql"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-func ConnectDB() (*sql.DB, error) {
-	mysqlCfg := mysql.NewConfig()
+func ConnectDB() (*mongo.Client, error) {
+	// Get Atlas URI from environment (copy it from Atlas → Connect → Drivers → Go)
+	// Example: "mongodb+srv://<username>:<password>@<cluster-url>/?retryWrites=true&w=majority"
+	uri := buildMongoURI()
+	if uri == "" {
+		return nil, fmt.Errorf("MONGO_URI environment variable not set")
+	}
 
-	dbport, err := strconv.Atoi(os.Getenv("DB_PORT"))
+	// Create client
+	clientOpts := options.Client().ApplyURI(uri)
+	client, err := mongo.NewClient(clientOpts)
 	if err != nil {
-		fmt.Print("incorrect port value")
+		return nil, fmt.Errorf("failed to create mongo client: %w", err)
 	}
-	mysqlCfg.User = os.Getenv("DB_USER")
-	mysqlCfg.Passwd = os.Getenv("DB_PASSWORD")
-	mysqlCfg.Net = "tcp"
-	mysqlCfg.Addr = fmt.Sprintf("%s:%d", os.Getenv("DB_HOST"), dbport)
-	mysqlCfg.DBName = os.Getenv("DB_NAME")
 
-	db, err := sql.Open("mysql", mysqlCfg.FormatDSN())
+	// Connect with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	err = client.Connect(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open database: %w", err)
+		return nil, fmt.Errorf("failed to connect to mongo: %w", err)
 	}
 
-	if err := db.Ping(); err != nil {
-		return nil, fmt.Errorf("failed to ping database: %w", err)
+	// Ping to verify connection
+	err = client.Ping(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to ping mongo: %w", err)
 	}
 
-	return db, nil
+	fmt.Println("✅ Connected to MongoDB Atlas!")
+	return client, nil
+}
+func buildMongoURI() string {
+	username := url.QueryEscape(os.Getenv("DB_USER"))
+	password := url.QueryEscape(os.Getenv("DB_PASSWORD"))
+	cluster := os.Getenv("DB_CLUSTER")
+
+	return fmt.Sprintf("mongodb+srv://%s:%s@%s/?retryWrites=true&w=majority",
+		username, password, cluster)
 }
